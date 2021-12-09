@@ -1,9 +1,9 @@
 # web3.php
 
-[![Build Status](https://travis-ci.org/sc0Vu/web3.php.svg?branch=master)](https://travis-ci.org/sc0Vu/web3.php)
-[![codecov](https://codecov.io/gh/sc0Vu/web3.php/branch/master/graph/badge.svg)](https://codecov.io/gh/sc0Vu/web3.php)
+[![Build Status](https://travis-ci.org/web3p/web3.php.svg?branch=master)](https://travis-ci.org/web3p/web3.php)
+[![codecov](https://codecov.io/gh/web3p/web3.php/branch/master/graph/badge.svg)](https://codecov.io/gh/web3p/web3.php)
 [![Join the chat at https://gitter.im/web3-php/web3.php](https://img.shields.io/badge/gitter-join%20chat-brightgreen.svg)](https://gitter.im/web3-php/web3.php)
-[![Licensed under the MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/sc0Vu/web3.php/blob/master/LICENSE)
+[![Licensed under the MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/web3p/web3.php/blob/master/LICENSE)
 
 
 A php interface for interacting with the Ethereum blockchain and ecosystem.
@@ -185,6 +185,10 @@ $constructorData = $contract->bytecode($bytecode)->getData($params);
 
 // get function data
 $functionData = $contract->at($contractAddress)->getData($functionName, $params);
+
+//get event log data 
+//$fromBlock and $toBlock are optional, default to 'latest' and accept block numbers integers
+$events = $contract->getEventLogs($eventName, $fromBlock, $toBlock);
 ```
 
 # Assign value to outside scope(from callback scope to outside scope)

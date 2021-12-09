@@ -1,5 +1,5 @@
 {
-    "name": "jackwong7/web3.php",
+    "name": "steven-ok/web3.php",
     "description": "Ethereum web3 interface.",
     "type": "library",
     "license": "MIT",
@@ -10,7 +10,7 @@
         }
     ],
     "require": {
-        "guzzlehttp/guzzle": "^7.0",
+        "guzzlehttp/guzzle": "^6.0 | ^7.0",
         "PHP": "^7.1",
         "kornrunner/keccak": "~1.0",
         "phpseclib/phpseclib": "~2.0.11",
