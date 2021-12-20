@@ -894,58 +894,70 @@ class Contract
         $eventLogData = [];
 
         //ensure the event actually exists before trying to filter for it
-        if (!array_key_exists($eventName, $this->events)) {
-            throw new InvalidArgumentException("'{$eventName}' does not exist in the ABI for this contract");
-        }
+        // if (!array_key_exists($eventName, $this->events)) {
+        //     throw new InvalidArgumentException("'{$eventName}' does not exist in the ABI for this contract");
+        // }
 
         //indexed and non-indexed event parameters must be treated separately
         //indexed parameters are stored in the 'topics' array
         //non-indexed parameters are stored in the 'data' value
-        $eventParameterNames = [];
-        $eventParameterTypes = [];
-        $eventIndexedParameterNames = [];
-        $eventIndexedParameterTypes = [];
-
-        foreach ($this->events[$eventName]['inputs'] as $input) {
-            if ($input['indexed']) {
-                $eventIndexedParameterNames[] = $input['name'];
-                $eventIndexedParameterTypes[] = $input['type'];
-            } else {
-                $eventParameterNames[] = $input['name'];
-                $eventParameterTypes[] = $input['type'];
+        $functionSignatures = [];
+        foreach ($this->events as $name => $value) {
+            $functionSignature = $this->ethabi->encodeEventSignature($value);
+            $functionSignatures[$functionSignature]['event_name'] = $name;
+            $functionSignatures[$functionSignature]['eventParameterNames'] = [];
+            $functionSignatures[$functionSignature]['eventParameterTypes'] = [];
+            $functionSignatures[$functionSignature]['eventIndexedParameterNames'] = [];
+            $functionSignatures[$functionSignature]['eventIndexedParameterTypes'] = [];
+            foreach($value['inputs'] as $input) {
+                if ($input['indexed']) {
+                    $functionSignatures[$functionSignature]['eventIndexedParameterNames'][] = $input['name'];
+                    $functionSignatures[$functionSignature]['eventIndexedParameterTypes'][] = $input['type'];
+                } else {
+                    $functionSignatures[$functionSignature]['eventParameterNames'][] = $input['name'];
+                    $functionSignatures[$functionSignature]['eventParameterTypes'][] = $input['type'];
+                }
             }
         }
 
-        $numEventIndexedParameterNames = count($eventIndexedParameterNames);
-
         //filter through log data to find any logs which match this event (topic) from
         //this contract, between these specified blocks (defaulting to the latest block only)
-        $this->eth->getLogs([
+        $filters = [
             'fromBlock' => (is_int($fromBlock)) ? '0x' . dechex($fromBlock) : $fromBlock,
             'toBlock' => (is_int($toBlock)) ? '0x' . dechex($toBlock) : $toBlock,
-            'topics' => [$this->ethabi->encodeEventSignature($this->events[$eventName])],
+            // 'topics' => [$this->ethabi->encodeEventSignature($this->events[$eventName])],
             'address' => $this->toAddress
-        ],
-        function ($error, $result) use (&$eventLogData, $eventParameterTypes, $eventParameterNames, $eventIndexedParameterTypes, $eventIndexedParameterNames, $numEventIndexedParameterNames) {
+        ];
+
+        if ($eventName != "") {
+            $filters['topics'] = [$this->ethabi->encodeEventSignature($this->events[$eventName])];
+        }
+
+        $this->eth->getLogs($filters,
+        function ($error, $result) use (&$eventLogData, $functionSignatures) {
             if ($error !== null) {
                 throw new RuntimeException($error->getMessage());
             }
 
             foreach ($result as $object) {
                 //decode the data from the log into the expected formats, with its corresponding named key
-                $decodedData = array_combine($eventParameterNames, $this->ethabi->decodeParameters($eventParameterTypes, $object->data));
+
+                // 根据方法得到方法签名
+                $decodedData = array_combine($functionSignatures[$object->topics[0]]['eventParameterNames'], $this->ethabi->decodeParameters($functionSignatures[$object->topics[0]]['eventParameterTypes'], $object->data));
 
                 //decode the indexed parameter data
-                for ($i = 0; $i < $numEventIndexedParameterNames; $i++) {
+                for ($i = 0; $i < count($functionSignatures[$object->topics[0]]['eventIndexedParameterNames']); $i++) {
                     //topics[0] is the event signature, so we start from $i + 1 for the indexed parameter data
-                    $decodedData[$eventIndexedParameterNames[$i]] = $this->ethabi->decodeParameters([$eventIndexedParameterTypes[$i]], $object->topics[$i + 1])[0];
+                    $decodedData[$functionSignatures[$object->topics[0]]['eventIndexedParameterNames'][$i]] = $this->ethabi->decodeParameters([$functionSignatures[$object->topics[0]]['eventIndexedParameterTypes'][$i]], $object->topics[$i + 1])[0];
                 }
 
                 //include block metadata for context, along with event data
                 $eventLogData[] = [
-                    'transactionHash' => $object->transactionHash,
-                    'blockHash' => $object->blockHash,
-                    'blockNumber' => hexdec($object->blockNumber),
+                    'address' => $object->address,
+                    'event_name' => $functionSignatures[$object->topics[0]]['event_name'],
+                    'transaction_hash' => $object->transactionHash,
+                    'block_hash' => $object->blockHash,
+                    'block_number' => hexdec($object->blockNumber),
                     'data' => $decodedData
                 ];
             }
